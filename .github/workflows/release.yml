@@ -60,9 +60,10 @@ jobs:
       #   npm run build (Next.js static export) → cargo build --release
       #   → bundles MSI + NSIS → uploads to the release tagged below.
       # The raw self-contained .exe also lands at
-      #   src-tauri/target/release/focusguard-desktop.exe
-      # which we zip in the next step. If the release already exists it
-      # merges artifacts into it rather than failing.
+      #   src-tauri/target/x86_64-pc-windows-msvc/release/focusguard-desktop.exe
+      # (because of the --target flag below) which we zip in the next step.
+      # If the release already exists it merges artifacts into it rather
+      # than failing.
       - name: Build Tauri app (MSI + NSIS)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -85,10 +86,19 @@ jobs:
         run: |
           $tag = "${{ steps.tag.outputs.name }}"
           $version = $tag.TrimStart("v")
-          $exe = "src-tauri/target/release/focusguard-desktop.exe"
-          if (-not (Test-Path $exe)) {
-            throw "Portable exe not found at $exe — did the Tauri build step run?"
+          # tauri-action builds with `--target x86_64-pc-windows-msvc`, so
+          # cargo emits the binary under the target-triple subdir rather
+          # than the plain release dir. Check both to stay robust to a
+          # future --target change (or removal).
+          $candidates = @(
+            "src-tauri/target/x86_64-pc-windows-msvc/release/focusguard-desktop.exe",
+            "src-tauri/target/release/focusguard-desktop.exe"
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) {
+            throw "Portable exe not found in any of: $($candidates -join ', '). Did the Tauri build step run?"
           }
+          Write-Host "Using portable exe: $exe"
           $staging = "portable-staging/FocusGuard-Desktop-$version"
           New-Item -ItemType Directory -Path $staging -Force | Out-Null
           Copy-Item $exe "$staging/FocusGuard-Desktop.exe"
