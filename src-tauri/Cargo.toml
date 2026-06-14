@@ -1,6 +1,6 @@
 [package]
 name = "focusguard-desktop"
-version = "1.7.2"
+version = "1.7.4"
 description = "FocusGuard Desktop Helper - Track desktop apps and stay focused"
 authors = ["FocusGuard"]
 edition = "2021"
@@ -19,6 +19,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", default-features = false, features = ["tray-icon", "wry", "common-controls-v6"] }
 tauri-plugin-shell = "2"
 tauri-plugin-notification = "2"
+# Global keyboard shortcut (Ctrl+Shift+F to toggle the tray popup).
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }

@@ -95,6 +95,21 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+/**
+ * Normalize a list of "desktop app names" into clean, non-empty strings.
+ *
+ * Guards every `.toLowerCase()` call site against non-string / null / empty
+ * entries that can sneak in from a migrated localStorage payload, a malformed
+ * extension sync merge, or `importData`. The 1.7.2 `toLowerCase` crash
+ * ("Cannot read properties of undefined") originated from these paths, so we
+ * sanitize on read *and* on write.
+ */
+function sanitizeAppNames(apps: unknown[]): string[] {
+  return apps
+    .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+    .map(a => a.trim());
+}
+
 type Store = FocusGuardState & FocusGuardActions;
 
 export const useFocusGuardStore = create<Store>()(
@@ -485,7 +500,7 @@ export const useFocusGuardStore = create<Store>()(
           todos: data.todos || [],
           quickAccess: data.quickAccess || DEFAULT_QUICK_ACCESS,
           desktopAppUsage: data.desktopAppUsage || {},
-          blockedDesktopApps: data.blockedDesktopApps || [],
+          blockedDesktopApps: sanitizeAppNames(data.blockedDesktopApps || []),
         });
       },
 
@@ -514,16 +529,19 @@ export const useFocusGuardStore = create<Store>()(
 
       // Desktop app blocking
       toggleBlockedDesktopApp: (appName) => {
-        const current = get().blockedDesktopApps;
-        const exists = current.some(a => a.toLowerCase() === appName.toLowerCase());
+        if (typeof appName !== 'string' || !appName.trim()) return;
+        const target = appName.trim();
+        const targetLower = target.toLowerCase();
+        const current = sanitizeAppNames(get().blockedDesktopApps);
+        const exists = current.some(a => a.toLowerCase() === targetLower);
         const next = exists
-          ? current.filter(a => a.toLowerCase() !== appName.toLowerCase())
-          : [...current, appName];
+          ? current.filter(a => a.toLowerCase() !== targetLower)
+          : [...current, target];
         set({ blockedDesktopApps: next });
       },
 
       setBlockedDesktopApps: (apps) => {
-        set({ blockedDesktopApps: apps });
+        set({ blockedDesktopApps: sanitizeAppNames(apps) });
       },
 
       // Extension sync bridge
@@ -559,6 +577,20 @@ export const useFocusGuardStore = create<Store>()(
     }),
     {
       name: 'focusguard_data',
+      // Sanitize on hydration: stale localStorage payloads (or blobs imported
+      // from an older extension build) may contain non-string entries in
+      // `blockedDesktopApps`, which previously crashed the block toggle with
+      // "Cannot read properties of undefined (reading 'toLowerCase')".
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<FocusGuardState>;
+        return {
+          ...current,
+          ...p,
+          blockedDesktopApps: sanitizeAppNames(
+            Array.isArray(p.blockedDesktopApps) ? p.blockedDesktopApps : [],
+          ),
+        };
+      },
       partialize: (state) => ({
         timer: state.timer,
         settings: state.settings,

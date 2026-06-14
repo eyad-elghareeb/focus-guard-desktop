@@ -61,6 +61,21 @@ pub struct SyncState {
     pub extension_updated_at: u64,
     /// Whether at least one extension responded to a health check recently.
     pub extension_connected: bool,
+    /// Canonicalized JSON of the last extension payload. Used to skip the
+    /// emit + timestamp bump when the incoming POST is byte-identical (e.g.
+    /// the extension's per-second timer ticks), preventing a slow feedback
+    /// loop (ext → broker → desktop merge → desktop push → ext poll …).
+    pub extension_payload_hash: Option<String>,
+    /// The most recent `focusguard_data` payload produced by the desktop
+    /// frontend (pushed via the `set_desktop_state` command). The broker
+    /// surfaces this back to extensions through `GET /state` so a session
+    /// started in the desktop app shows up in the browser instantly.
+    pub desktop_payload: Option<serde_json::Value>,
+    /// When `desktop_payload` was last updated (millis since epoch).
+    pub desktop_updated_at: u64,
+    /// Canonicalized JSON of the last desktop payload — same dedup purpose
+    /// as `extension_payload_hash` but for the desktop → broker direction.
+    pub desktop_payload_hash: Option<String>,
 }
 
 /// Top-level managed state.

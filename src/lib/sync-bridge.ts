@@ -1,16 +1,25 @@
 // FocusGuard Desktop — Extension Sync Bridge (frontend side).
 //
+// Two-way realtime sync between the desktop app and the browser extensions:
+//
+//   ┌─ extensions ─→ POST /state           ─→ Rust broker ─→ Tauri event
+//   │      ▲                                              │
+//   │      │                                              ▼
+//   │   GET /state  ←─── merged view ←── desktop state (this module pushes)
+//   │                                                     │
+//   └── extension UI                              Zustand store (desktop UI)
+//
 // The Rust backend (src-tauri/src/sync_server.rs) runs an HTTP broker on
 // localhost:9472. Browser extensions POST their full state blob to it; the
 // broker stores the latest blob and emits a `extension-state-push` Tauri
 // event. This module subscribes to that event and merges the payload into
 // the Zustand store using a last-write-wins policy per top-level section.
 //
-// Conflict policy (MVP): each top-level section in the store carries an
-// implicit timestamp via its position in the array/object. Whichever side
-// last wrote wins. The timer specifically follows whichever side last called
-// start/pause/reset — we detect this by comparing `lastTick` and
-// `sessionStartTimestamp`.
+// In the opposite direction, this module subscribes to store changes and
+// pushes the desktop's state blob back to the broker via the
+// `set_desktop_state` command. The broker's `GET /state` therefore returns
+// both sides, so a session started in the desktop app shows up in the
+// browser extension within one poll (≈5s).
 
 import { isTauri, tauriInvoke, tauriListen } from './tauri';
 import { useFocusGuardStore } from './store';
@@ -40,19 +49,88 @@ interface ExtensionPayload {
 
 let started = false;
 
+/**
+ * Minimum gap between desktop → broker pushes (ms).
+ *
+ * The store's `tickTimer` mutates `remainingSeconds` + `lastTick` every
+ * second during a running session. Consumers reconstruct the live countdown
+ * from `lastTick` themselves, so we don't need to push on every tick.
+ * 1000ms coalesces consecutive ticks into a single push while still feeling
+ * instant to a human watching the browser extension catch up.
+ */
+const PUSH_DEBOUNCE_MS = 1000;
+
 /** Start the sync bridge. Safe to call multiple times — no-ops after first. */
 export function startSyncBridge(): void {
   if (started || !isTauri()) return;
   started = true;
 
-  // Listen for state pushes from extensions (relayed by the Rust broker).
+  // ── Inbound: extension → desktop ───────────────────────────────
   tauriListen<ExtensionPayload>('extension-state-push', (payload) => {
     if (!payload) return;
     mergeExtensionState(payload);
   });
 
-  // Poll the broker for connection status (cheap — just reads shared state).
-  // Extensions push to us, so we just need to surface the connected flag.
+  // ── Inbound: desktop usage heartbeat from the polling loop ─────
+  // The backend polls every 2s and emits today's usage slice (a flat array,
+  // not a date-keyed map — saves cloning the full 30-day history each tick).
+  tauriListen<unknown[]>('desktop-usage-updated', (rows) => {
+    if (!Array.isArray(rows)) return;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      useFocusGuardStore.getState().updateDesktopAppUsage(
+        today,
+        rows.map(r => {
+          const a = (r ?? {}) as Record<string, unknown>;
+          return {
+            appName: String(a.appName ?? ''),
+            windowTitle: String(a.windowTitle ?? ''),
+            totalSeconds: Number(a.totalSeconds ?? 0),
+            lastActive: Number(a.lastActive ?? 0),
+            category: String(a.category ?? 'other'),
+          };
+        }),
+      );
+    } catch {
+      /* swallow — never let sync break the UI */
+    }
+  });
+
+  // ── Outbound: desktop → broker (debounced store subscription) ──
+  let pushTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastPushedJson = '';
+
+  useFocusGuardStore.subscribe(() => {
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => {
+      pushTimer = null;
+      const state = useFocusGuardStore.getState();
+      // Build the shareable blob (mirror exportData's shape — strip
+      // runtime-only sync flags to avoid feedback loops).
+      const blob = {
+        timer: state.timer,
+        settings: state.settings,
+        blockedSites: state.blockedSites,
+        siteUsage: state.siteUsage,
+        dailyStats: state.dailyStats,
+        sessionLog: state.sessionLog,
+        studyLog: state.studyLog,
+        todos: state.todos,
+        quickAccess: state.quickAccess,
+        desktopAppUsage: state.desktopAppUsage,
+        blockedDesktopApps: state.blockedDesktopApps,
+      };
+      const json = JSON.stringify(blob);
+      if (json === lastPushedJson) return; // nothing changed
+      lastPushedJson = json;
+      tauriInvoke('set_desktop_state', { payload: blob });
+    }, PUSH_DEBOUNCE_MS);
+  });
+
+  // ── Connection status poll ─────────────────────────────────────
+  // Extensions push to us; we just need to surface the connected flag. The
+  // flag only flips when an extension connects/disconnects (rare), so 10s
+  // is plenty and keeps the broker idle most of the time.
   const poll = setInterval(async () => {
     const status = await tauriInvoke<{
       extensionConnected: boolean;
@@ -63,7 +141,7 @@ export function startSyncBridge(): void {
     if (store.extensionConnected !== status.extensionConnected) {
       store.setExtensionConnected(status.extensionConnected);
     }
-  }, 5000);
+  }, 10000);
 
   // Best-effort cleanup on page unload.
   window.addEventListener('beforeunload', () => clearInterval(poll));

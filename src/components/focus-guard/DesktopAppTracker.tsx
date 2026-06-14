@@ -38,22 +38,39 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: '#9ca3af',
 };
 
-export function DesktopAppTracker() {
-  const [appUsage, setAppUsage] = useState<DesktopAppUsage[]>(
-    isTauri() ? [] : DEMO_APPS,
-  );
-  const [isTracking, setIsTracking] = useState(false);
-  const [selectedApp, setSelectedApp] = useState<string | null>(null);
-  const [runningApps, setRunningApps] = useState<{ name: string; category: string }[]>([]);
+/** Coerce a raw usage row (from Rust or store) into a safe DesktopAppUsage. */
+function safeRow(raw: unknown): DesktopAppUsage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const appName = typeof r.appName === 'string' ? r.appName.trim() : '';
+  if (!appName) return null;
+  return {
+    appName,
+    windowTitle: typeof r.windowTitle === 'string' ? r.windowTitle : '',
+    totalSeconds: typeof r.totalSeconds === 'number' ? r.totalSeconds : 0,
+    lastActive: typeof r.lastActive === 'number' ? r.lastActive : 0,
+    category: typeof r.category === 'string' ? r.category : 'other',
+  };
+}
 
+export function DesktopAppTracker() {
+  // The polling loop (Rust) + sync bridge already push today's usage into the
+  // store. Reading from there means this component re-renders exactly when
+  // data changes — no 2s interval, no race with the backend.
+  const storedToday = useFocusGuardStore(s => s.desktopAppUsage[getTodayKey()]);
   const blockedDesktopApps = useFocusGuardStore(s => s.blockedDesktopApps);
   const toggleBlockedDesktopApp = useFocusGuardStore(s => s.toggleBlockedDesktopApp);
-  const setBlockedDesktopApps = useFocusGuardStore(s => s.setBlockedDesktopApps);
-  const updateDesktopAppUsage = useFocusGuardStore(s => s.updateDesktopAppUsage);
   const timer = useFocusGuardStore(s => s.timer);
   const settings = useFocusGuardStore(s => s.settings);
   const extensionConnected = useFocusGuardStore(s => s.extensionConnected);
   const syncEnabled = useFocusGuardStore(s => s.syncEnabled);
+
+  const [isTracking, setIsTracking] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<string | null>(null);
+  // Extra apps the user has blocked but never focused today (kept in sync via
+  // a lazy fetch of get_known_apps). Foreground-only tracking means we don't
+  // dump every running process here anymore.
+  const [extraKnownApps, setExtraKnownApps] = useState<{ name: string; category: string }[]>([]);
 
   // Whether blocking can be toggled right now (work-session active OR user has
   // already pinned blocks). Mirrors the extension's getBlockStatus logic.
@@ -64,48 +81,36 @@ export function DesktopAppTracker() {
       (timer.mode !== 'work' && settings.blockDuringBreaks))
   );
 
-  // Real Tauri integration: start tracking, poll usage, refresh running apps.
+  // Boot: tell Rust to start tracking + what's blocked.
   useEffect(() => {
     if (!isTauri()) return;
 
     let cancelled = false;
-
     (async () => {
-      // Push the current block list to Rust so the overlay loop knows what to gate.
       await tauriInvoke('set_blocked_desktop_apps', { names: blockedDesktopApps });
-      // Start tracking foreground app usage.
       const ok = await tauriInvoke<boolean>('start_app_tracking');
       if (ok && !cancelled) setIsTracking(true);
-      // Initial running-apps list (for the block picker).
-      const apps = await tauriInvoke<{ name: string; category: string }[]>('get_running_apps');
-      if (apps && !cancelled) setRunningApps(apps);
+
+      // One-shot seed of "known apps I've blocked but never focused today".
+      const apps = await tauriInvoke<{ name: string; category: string }[]>('get_known_apps');
+      if (apps && !cancelled) {
+        setExtraKnownApps(
+          apps
+            .map(a => ({
+              name: typeof a?.name === 'string' ? a.name : '',
+              category: typeof a?.category === 'string' ? a.category : 'other',
+            }))
+            .filter(a => a.name.trim()),
+        );
+      }
     })();
 
-    // Heartbeat: refresh usage + running apps periodically.
-    const poll = setInterval(async () => {
-      const data = await tauriInvoke<Record<string, DesktopAppUsage[]>>('get_desktop_app_usage');
-      if (!data || cancelled) return;
-      const today = getTodayKey();
-      const todayList = data[today] || [];
-      setAppUsage(todayList);
-      updateDesktopAppUsage(today, todayList);
-
-      // Refresh running apps less often (every 5 ticks ≈ 10s).
-      if (Math.random() < 0.2) {
-        const apps = await tauriInvoke<{ name: string; category: string }[]>('get_running_apps');
-        if (apps && !cancelled) setRunningApps(apps);
-      }
-    }, 2000);
-
-    // Listen for emergency-access grants (breaks streak in parent).
     const unlistenP = tauriListen<{ appName: string }>('emergency-access-granted', () => {
-      // Streak break is handled by the store layer; just refresh UI here.
       setSelectedApp(null);
     });
 
     return () => {
       cancelled = true;
-      clearInterval(poll);
       tauriInvoke('stop_app_tracking');
       unlistenP.then(fn => fn?.());
     };
@@ -118,9 +123,22 @@ export function DesktopAppTracker() {
     }
   }, [blockedDesktopApps]);
 
-  const totalTrackedTime = useMemo(() => appUsage.reduce((s, a) => s + a.totalSeconds, 0), [appUsage]);
+  // Pull today's rows from the store (heartbeat-fed), with a defensive filter.
+  const appUsage = useMemo<DesktopAppUsage[]>(() => {
+    if (!isTauri()) return DEMO_APPS;
+    if (!Array.isArray(storedToday)) return [];
+    return storedToday.map(safeRow).filter((r): r is DesktopAppUsage => r !== null);
+  }, [storedToday]);
 
-  const sortedApps = useMemo(() => [...appUsage].sort((a, b) => b.totalSeconds - a.totalSeconds), [appUsage]);
+  const totalTrackedTime = useMemo(
+    () => appUsage.reduce((s, a) => s + a.totalSeconds, 0),
+    [appUsage],
+  );
+
+  const sortedApps = useMemo(
+    () => [...appUsage].sort((a, b) => b.totalSeconds - a.totalSeconds),
+    [appUsage],
+  );
 
   const maxTime = sortedApps.length > 0 ? sortedApps[0].totalSeconds : 1;
 
@@ -132,18 +150,29 @@ export function DesktopAppTracker() {
     return Object.entries(cats).sort((a, b) => b[1] - a[1]);
   }, [appUsage]);
 
-  // Merge currently-running apps with tracked ones so the user can block apps
-  // they haven't accumulated time on yet.
+  // Merge tracked apps with extras the user has explicitly blocked (so they
+  // can unblock them even without time-on-app). Dedup case-insensitively.
   const allKnownApps = useMemo(() => {
     const tracked = new Set(appUsage.map(a => a.appName.toLowerCase()));
-    const extras = runningApps
-      .filter(a => !tracked.has(a.name.toLowerCase()))
-      .map(a => ({ appName: a.name, category: a.category, totalSeconds: 0, windowTitle: '', lastActive: 0 }));
+    const extras = extraKnownApps
+      .map(e => ({
+        appName: e.name,
+        category: e.category || 'other',
+        totalSeconds: 0,
+        windowTitle: '',
+        lastActive: 0,
+      }))
+      .filter(e => !tracked.has(e.appName.toLowerCase()));
     return [...appUsage, ...extras];
-  }, [appUsage, runningApps]);
+  }, [appUsage, extraKnownApps]);
 
-  const isBlocked = (name: string) =>
-    blockedDesktopApps.some(b => b.toLowerCase() === name.toLowerCase());
+  const isBlocked = (name: string) => {
+    if (!name || typeof name !== 'string') return false;
+    const lowered = name.toLowerCase();
+    return blockedDesktopApps.some(
+      b => typeof b === 'string' && b.toLowerCase() === lowered,
+    );
+  };
 
   return (
     <div className="fg-glass p-5">
@@ -319,7 +348,7 @@ export function DesktopAppTracker() {
       {/* Note */}
       <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
         <p style={{ fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.5 }}>
-          App tracking runs via Tauri native backend. OS shells are excluded.{' '}
+          Foreground-only tracking: only apps you actually use appear here. OS services are excluded.{' '}
           {!isTauri() && '(Running in demo mode — launch the desktop app for real tracking.)'}
         </p>
       </div>

@@ -2,6 +2,16 @@
 //!
 //! Periodically polls the foreground window, accumulates per-app seconds,
 //! categorizes apps, and filters out OS-internal processes.
+//!
+//! Design goals (v1.7.3):
+//!   - **Foreground only.** We never enumerate running processes — that flooded
+//!     the UI with hundreds of background services the user never focused. The
+//!     only source of truth is `get_active_window()`.
+//!   - **Continuous duration.** Each app accumulates time *as long as it stays*
+//!     in the foreground. A brief alt-tab no longer creates a brand-new entry.
+//!   - **Minimum dwell.** An app must be focused for at least
+//!     `MIN_DWELL_SECONDS` before it enters the list, so 200ms flicker between
+//!     windows doesn't pollute today's stats.
 
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +24,10 @@ pub struct DesktopAppUsage {
     pub last_active: u64,
     pub category: String,
 }
+
+/// An app must hold the foreground for at least this long before it appears in
+/// the usage list. Filters out sub-second window-switching noise.
+pub const MIN_DWELL_SECONDS: u64 = 5;
 
 /// Categorize an application based on its name. Matches the categories used
 /// by the frontend's `DesktopAppTracker` component (development, browser, …).
@@ -203,6 +217,8 @@ pub fn should_exclude_app(app_name: &str) -> bool {
             "systemsettings",
             "sihost.dll",
             "lockapp",
+            "startmenuexperiencehost",
+            "textinputhost",
         ],
     ) {
         return true;
@@ -256,36 +272,74 @@ pub fn today_key() -> String {
 pub fn get_active_window() -> Option<(String, String)> {
     match active_win_pos_rs::get_active_window() {
         Ok(window) => {
-            if window.app_name.is_empty() {
+            let name = window.app_name.trim();
+            if name.is_empty() {
                 return None;
             }
-            Some((window.app_name, window.title))
+            Some((name.to_string(), window.title))
         }
         Err(_) => None,
     }
 }
 
-/// Get a list of currently running apps (for the UI's blocking list).
-pub fn list_running_apps() -> Vec<serde_json::Value> {
-    let mut system = sysinfo::System::new();
-    system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-
+/// Returns the list of apps the user has *actually focused* today, plus any
+/// they have previously chosen to block. This replaces the old sysinfo-based
+/// running-process dump, which flooded the UI with hundreds of OS services
+/// the user would never care about.
+///
+/// Sources:
+///   - `today_usage` — apps the polling loop has seen in the foreground today.
+///   - `blocked_apps` — apps the user has explicitly blocked (may include
+///     apps not seen yet today, e.g. set in a prior session).
+///
+/// A minimum dwell-time filter is applied: apps seen for less than
+/// `MIN_DWELL_SECONDS` of *real* foreground time don't surface in the list,
+/// so a sub-second alt-tab no longer adds noise. Blocked apps bypass the
+/// filter (the user explicitly chose them).
+pub fn list_known_apps(
+    today_usage: &[DesktopAppUsage],
+    blocked_apps: &[String],
+) -> Vec<serde_json::Value> {
     let mut seen = std::collections::HashSet::new();
     let mut apps: Vec<serde_json::Value> = Vec::new();
 
-    for process in system.processes().values() {
-        let name = process.name().to_string_lossy().to_string();
-        if name.is_empty() || should_exclude_app(&name) {
+    // Pre-seed the "seen" set with lowercased blocked-app names so the dwell
+    // filter below doesn't drop apps the user cares about.
+    let blocked_lower: std::collections::HashSet<String> =
+        blocked_apps.iter().map(|s| s.to_lowercase()).collect();
+
+    // 1. Apps we've actually seen focused today (sorted by most-recently-used).
+    let mut sorted: Vec<&DesktopAppUsage> = today_usage.iter().collect();
+    sorted.sort_by(|a, b| b.last_active.cmp(&a.last_active));
+
+    for usage in sorted {
+        let name = usage.app_name.trim();
+        if name.is_empty() {
             continue;
         }
-        // Deduplicate by lowercased name — sysinfo lists multiple PIDs per app.
-        let key = name.to_lowercase();
-        if !seen.insert(key) {
+        let lower = name.to_lowercase();
+        if !seen.insert(lower.clone()) {
+            continue;
+        }
+        // Dwell filter: skip apps that barely held focus, unless blocked.
+        if usage.total_seconds < MIN_DWELL_SECONDS && !blocked_lower.contains(&lower) {
             continue;
         }
         apps.push(serde_json::json!({
             "name": name,
-            "category": categorize_app(&name),
+            "category": usage.category.clone(),
+        }));
+    }
+
+    // 2. Blocked apps not yet seen today (e.g. set in a prior session).
+    for name in blocked_apps {
+        let trimmed = name.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_lowercase()) {
+            continue;
+        }
+        apps.push(serde_json::json!({
+            "name": trimmed,
+            "category": categorize_app(trimmed),
         }));
     }
 

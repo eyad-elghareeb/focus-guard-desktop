@@ -30,24 +30,36 @@ All endpoints are served on `http://localhost:9472`. Responses include
 `moz-extension://` / `chrome-extension://` origins) can call them.
 
 ### `GET /health`
-Returns `{ ok: true, version: "1.7.2", desktop: true }`. The extension
+Returns `{ ok: true, version: "1.7.4", desktop: true }`. The extension
 polls this every 5 seconds to detect the desktop.
 
 ### `GET /state`
-Returns the latest extension payload the broker has received, plus a
-timestamp:
+Returns the merged view of both sides plus per-side timestamps:
 ```json
 {
   "extension": { /* full focusguard_data blob */ },
   "extensionUpdatedAt": 1718400000000,
-  "extensionConnected": true
+  "extensionConnected": true,
+  "desktop": { /* full focusguard_data blob from the desktop frontend */ },
+  "desktopUpdatedAt": 1718400001234,
+  "mergedTimer": { /* the timer of whichever side wrote last */ }
 }
 ```
+Extensions read `desktop` to mirror a session the user started on the
+desktop app; the desktop reads `extension` to mirror changes from the
+browser. `mergedTimer` is a convenience shallow-merge that picks the timer
+with the newer `lastTick`.
 
 ### `POST /state`
 Body: the extension's full `focusguard_data` state object. The broker stores
 it and emits a Tauri `extension-state-push` event so the desktop frontend
 merges it into its Zustand store.
+
+### `POST /desktop-state`
+Body: the desktop frontend's full `focusguard_data` state object. Stored in
+the broker so the next `GET /state` returns it under `desktop`. This is what
+makes a session started in the desktop app appear in the browser in realtime
+(within one extension poll, ≈5s).
 
 ### `GET /desktop-app-usage`
 Returns desktop-only foreground app usage (keyed by date), which the
@@ -75,8 +87,16 @@ single-user, single-machine setup.
 
 - The extension pushes state to the desktop **at most once every 500ms**
   (debounced inside `background/sync.js`).
-- The desktop pulls from itself every 10s to surface desktop-side changes
-  back to the extension.
+- The desktop pushes state to the broker **at most once every 1000ms**
+  (debounced in `sync-bridge.ts`), and only when the canonical JSON actually
+  differs from the last push — so per-second timer ticks that produce the
+  same blob don't churn the broker.
+- The broker **dedups identical `POST /state` and `POST /desktop-state`
+  payloads** by canonicalizing the JSON and comparing to the last-seen hash.
+  Identical bodies skip the store + Tauri emit entirely, which breaks the
+  potential feedback loop at its source.
+- The desktop polls the connection flag every 10s (extensions push to us;
+  we only need to surface the boolean).
 - The extension health-checks every 5s.
 
 ## Field compatibility
@@ -92,7 +112,7 @@ extra fields, so a round-trip through the extension is safe.
 
 ## Versioning
 
-All three apps are version-locked at `1.7.2` (declared in each `package.json`
+All three apps are version-locked at `1.7.4` (declared in each `package.json`
 / `manifest.json` / `Cargo.toml`). The `/health` endpoint returns the
 desktop's version so the extension can warn about mismatches in future
 releases.

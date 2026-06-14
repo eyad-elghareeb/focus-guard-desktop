@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nickel-lang/json-schema-store/main/tauri.schema.json",
   "productName": "FocusGuard Desktop",
-  "version": "1.7.2",
+  "version": "1.7.4",
   "identifier": "com.focusguard.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -39,12 +39,33 @@
         "height": 800,
         "minWidth": 800,
         "minHeight": 600
+      },
+      {
+        "label": "tray-popup",
+        "url": "tray-popup/index.html",
+        "title": "FocusGuard",
+        "visible": false,
+        "resizable": false,
+        "decorations": false,
+        "fullscreen": false,
+        "maximized": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": true,
+        "center": false,
+        "focus": true,
+        "width": 320,
+        "height": 440,
+        "minWidth": 320,
+        "minHeight": 440
       }
     ],
     "trayIcon": {
+      "id": "main",
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
-      "tooltip": "FocusGuard Desktop"
+      "tooltip": "FocusGuard Desktop",
+      "showMenuOnLeftClick": false
     },
     "security": {
       "csp": null
