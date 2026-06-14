@@ -1107,7 +1107,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "focusguard-desktop"
-version = "1.7.4"
+version = "1.7.5"
 dependencies = [
  "active-win-pos-rs",
  "chrono",
@@ -1123,6 +1123,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tiny_http",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

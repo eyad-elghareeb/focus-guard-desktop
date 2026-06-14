@@ -340,15 +340,79 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 function SettingsStepper({ label, value, onChange, min, max }: {
   label: string; value: number; onChange: (v: number) => void; min: number; max: number;
 }) {
+  // The value is editable: type a number directly, or use the +/- buttons.
+  // Buttons clamp at the range; invalid typed input falls back to the
+  // previous value so the field never holds garbage.
+  //
+  // `draft` only holds in-progress typing; the displayed value is derived
+  // from the prop when we're *not* editing. Deriving during render (instead
+  // of syncing via an effect) avoids cascading re-renders and keeps the field
+  // in sync when a sibling stepper mutates the shared parent value.
+  const [draft, setDraft] = useState<string>(String(value));
+  const [editing, setEditing] = useState(false);
+
+  const clamp = (n: number) => Math.max(min, Math.min(max, n));
+  const displayValue = editing ? draft : String(value);
+
+  const commit = () => {
+    setEditing(false);
+    const parsed = parseInt(draft, 10);
+    if (Number.isFinite(parsed)) {
+      onChange(clamp(parsed));
+      setDraft(String(clamp(parsed)));
+    } else {
+      setDraft(String(value));
+    }
+  };
+
   return (
     <div>
       <label style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
         {label}
       </label>
       <div className="fg-stepper">
-        <button onClick={() => onChange(Math.max(min, value - 1))}>&minus;</button>
-        <span className="value">{value}</span>
-        <button onClick={() => onChange(Math.min(max, value + 1))}>+</button>
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(min, value - 1))}
+          disabled={value <= min}
+          aria-label={`Decrease ${label}`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+        <input
+          className="value"
+          type="text"
+          inputMode="numeric"
+          value={displayValue}
+          onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
+          onFocus={() => {
+            setEditing(true);
+            setDraft(String(value));
+          }}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') {
+              setDraft(String(value));
+              setEditing(false);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          aria-label={label}
+        />
+        <button
+          type="button"
+          onClick={() => onChange(Math.min(max, value + 1))}
+          disabled={value >= max}
+          aria-label={`Increase ${label}`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
       </div>
     </div>
   );

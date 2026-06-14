@@ -1,12 +1,23 @@
-//! Desktop app blocking overlay logic.
+//! Desktop app blocking logic.
 //!
-//! Hard-killing the foreground process is OS-specific, fragile, and abusive.
-//! Instead we surface a fullscreen, always-on-top overlay window that visually
-//! occludes the blocked app. This is portable across Windows/macOS/Linux and
-//! matches the UX of the browser extensions' site-blocking page.
+//! Two complementary mechanisms:
 //!
-//! "Emergency access" lifts the overlay for 5 minutes for one app, mirroring
-//! the extension's behaviour — and breaks the current pomodoro streak.
+//! 1. **Active removal (Windows).** `minimize_blocked_window()` tells the
+//!    foreground window to minimize via `ShowWindow(SW_MINIMIZE)`. This is
+//!    non-destructive — the app keeps running and the user can restore it,
+//!    but the next poll tick minimizes it again. It works around the fact
+//!    that Windows blocks arbitrary processes from stealing focus, while
+//!    minimizing our *own* view of "the thing the user just tried to use".
+//!
+//! 2. **Visual occlusion (cross-platform).** `show_overlay()` raises a
+//!    fullscreen, always-on-top overlay so the blocked app can't be seen or
+//!    clicked. This mirrors the browser extension's site-blocking page and
+//!    is the fallback on macOS/Linux where we don't minimize.
+//!
+//! Hard-killing the foreground process remains off the table: it's
+//! OS-specific, fragile, and abusive. "Emergency access" lifts the overlay
+//! for 5 minutes for one app, mirroring the extension's behaviour — and
+//! breaks the current pomodoro streak.
 
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, LogicalSize, Manager};
@@ -75,4 +86,38 @@ pub fn reap_emergency(state: &AppState) {
         let now = Instant::now();
         guard.emergency_until.retain(|_, until| *until > now);
     }
+}
+
+// ─── Active removal (Windows) ────────────────────────────────────
+
+/// Minimize the currently foreground window. Called by the poll loop when a
+/// blocked app is detected, in addition to raising the overlay.
+///
+/// On Windows we use `GetForegroundWindow` + `ShowWindow(SW_MINIMIZE)`. This
+/// is the foreground window the user just switched to, so it is by definition
+/// *not* the FocusGuard overlay — there's no risk of minimizing ourselves
+/// here. The call is non-destructive: the app keeps running and the user can
+/// restore it, but the next poll tick minimizes it again.
+///
+/// On macOS/Linux this is a no-op; those platforms rely on the overlay alone.
+#[cfg(windows)]
+pub fn minimize_blocked_window() {
+    // SAFETY: both calls are thread-safe Win32 queries with no pointers.
+    // `GetForegroundWindow` returns a handle (or NULL), and `ShowWindow`
+    // with `SW_MINIMIZE` only acts on that handle. We bail on NULL.
+    unsafe {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, ShowWindow, SW_MINIMIZE,
+        };
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return;
+        }
+        let _ = ShowWindow(hwnd, SW_MINIMIZE);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn minimize_blocked_window() {
+    // No native minimize on this platform — the overlay alone covers it.
 }

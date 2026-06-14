@@ -1,6 +1,6 @@
 [package]
 name = "focusguard-desktop"
-version = "1.7.4"
+version = "1.7.5"
 description = "FocusGuard Desktop Helper - Track desktop apps and stay focused"
 authors = ["FocusGuard"]
 edition = "2021"
@@ -28,6 +28,15 @@ tokio = { version = "1", features = ["full"] }
 sysinfo = "0.32"
 active-win-pos-rs = "0.8"
 dirs = "5"
+# Native foreground-window lookup (minimize blocked apps) on Windows.
+# Already a transitive dependency; declared directly so we can call
+# `ShowWindow`/`GetForegroundWindow` ourselves. Gated to Windows only.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
+] }
 # HTTP client used by the sync broker to forward actions to extensions.
 # default-features = false + explicit feature list avoids the `brotli` crate,
 # which has a build-time incompatibility with recent nightly/stable Rust.

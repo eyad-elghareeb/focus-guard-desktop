@@ -198,8 +198,16 @@ fn merged_state(app: &AppHandle) -> serde_json::Value {
     // Shallow-merge timer: whichever side last wrote wins.
     let merged_timer = match (extension.as_ref(), desktop.as_ref()) {
         (Some(ext), Some(dsk)) => {
-            let ext_ts = ext.get("timer").and_then(|t| t.get("lastTick")).and_then(|v| v.as_u64()).unwrap_or(0);
-            let dsk_ts = dsk.get("timer").and_then(|t| t.get("lastTick")).and_then(|v| v.as_u64()).unwrap_or(0);
+            let ext_ts = ext
+                .get("timer")
+                .and_then(|t| t.get("lastTick"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let dsk_ts = dsk
+                .get("timer")
+                .and_then(|t| t.get("lastTick"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             if dsk_ts >= ext_ts {
                 dsk.get("timer").cloned()
             } else {
@@ -270,9 +278,6 @@ fn access_control_methods_header() -> Header {
 }
 
 fn access_control_headers_allowed() -> Header {
-    Header::from_bytes(
-        &b"Access-Control-Allow-Headers"[..],
-        &b"Content-Type"[..],
-    )
-    .expect("valid header bytes")
+    Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type"[..])
+        .expect("valid header bytes")
 }

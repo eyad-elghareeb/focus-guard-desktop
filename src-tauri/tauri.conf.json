@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nickel-lang/json-schema-store/main/tauri.schema.json",
   "productName": "FocusGuard Desktop",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "identifier": "com.focusguard.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",

@@ -23,6 +23,15 @@ pub struct DesktopAppUsage {
     pub total_seconds: u64,
     pub last_active: u64,
     pub category: String,
+    /// Absolute path to the app's executable when known (Windows/macOS/Linux).
+    /// Empty string when unknown. Used for robust blocking: matching on the
+    /// exe file stem survives localized display names and process-title drift.
+    #[serde(default)]
+    pub process_path: String,
+    /// OS process id of the foreground window when last seen. Best-effort;
+    /// may be stale between polls. Used by the Windows blocker to minimize.
+    #[serde(default)]
+    pub process_id: u64,
 }
 
 /// An app must hold the foreground for at least this long before it appears in
@@ -268,18 +277,72 @@ pub fn today_key() -> String {
 }
 
 /// Fetch the currently active window cross-platform.
-/// Returns (app_name, window_title) or None.
-pub fn get_active_window() -> Option<(String, String)> {
+/// Returns `(app_name, window_title, process_path, process_id)` or `None`.
+///
+/// `process_path` is the absolute path to the executable when known (empty
+/// otherwise); `process_id` is `0` when unknown. The path lets the blocker
+/// match robustly on the exe file stem instead of a localized display name.
+pub fn get_active_window() -> Option<(String, String, String, u64)> {
     match active_win_pos_rs::get_active_window() {
         Ok(window) => {
             let name = window.app_name.trim();
             if name.is_empty() {
                 return None;
             }
-            Some((name.to_string(), window.title))
+            let path = window
+                .process_path
+                .to_str()
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            Some((name.to_string(), window.title, path, window.process_id))
         }
         Err(_) => None,
     }
+}
+
+/// Lowercased file stem of an exe path (e.g. `C:\...\Code.exe` → `code`).
+/// Returns the empty string when the path has no file stem.
+pub fn exe_stem(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default()
+}
+
+/// Whether a foreground app should be treated as "blocked".
+///
+/// This is intentionally fuzzy because the user picks apps by display name in
+/// the UI, but the OS may report a different name on a different locale or
+/// version. We therefore consider it a match when **any** of these hold:
+///   - the display name equals the blocked entry (case-insensitive), or
+///   - the blocked entry equals the foreground app's exe stem (case-insensitive),
+///   - one contains the other (handles "Code" vs "Visual Studio Code").
+///
+/// `process_path` may be empty when unknown; in that case only name matching
+/// applies.
+pub fn matches_blocked(display_name: &str, process_path: &str, blocked: &str) -> bool {
+    let dn = display_name.to_lowercase();
+    let b = blocked.trim().to_lowercase();
+    if b.is_empty() {
+        return false;
+    }
+    if dn == b {
+        return true;
+    }
+    let stem = exe_stem(process_path);
+    if !stem.is_empty() && stem == b {
+        return true;
+    }
+    dn.contains(&b) || b.contains(&dn)
+}
+
+/// True when the given blocked entry matches either the display name or the
+/// exe stem of the row, scanning the whole block list.
+pub fn is_app_blocked(display_name: &str, process_path: &str, blocked_apps: &[String]) -> bool {
+    blocked_apps
+        .iter()
+        .any(|b| matches_blocked(display_name, process_path, b))
 }
 
 /// Returns the list of apps the user has *actually focused* today, plus any
@@ -322,12 +385,16 @@ pub fn list_known_apps(
             continue;
         }
         // Dwell filter: skip apps that barely held focus, unless blocked.
-        if usage.total_seconds < MIN_DWELL_SECONDS && !blocked_lower.contains(&lower) {
+        let blocked_by_name = blocked_lower.contains(&lower);
+        let blocked_by_path = !usage.process_path.is_empty()
+            && blocked_lower.contains(&exe_stem(&usage.process_path));
+        if usage.total_seconds < MIN_DWELL_SECONDS && !(blocked_by_name || blocked_by_path) {
             continue;
         }
         apps.push(serde_json::json!({
             "name": name,
             "category": usage.category.clone(),
+            "processPath": usage.process_path.clone(),
         }));
     }
 

@@ -431,11 +431,21 @@
   cursor: pointer;
   transition: all var(--duration) var(--ease);
   font-size: 16px;
+  flex-shrink: 0;
 }
 
-.fg-stepper button:hover {
+.fg-stepper button:hover:not(:disabled) {
   background: var(--bg-elevated);
   color: var(--text-primary);
+}
+
+.fg-stepper button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.fg-stepper button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .fg-stepper .value {
@@ -447,8 +457,21 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+  border: none;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  text-align: center;
+  outline: none;
+  padding: 0 4px;
+  font-family: inherit;
+  flex: 1;
+  min-width: 0;
+  transition: background var(--duration) var(--ease);
+}
+
+.fg-stepper .value:focus {
+  background: var(--bg-elevated);
 }
 
 /* Stat card */

@@ -5,7 +5,6 @@ import { getGreeting, getTodayKey } from '@/lib/helpers';
 import { isTauri, tauriInvoke } from '@/lib/tauri';
 import { startSyncBridge } from '@/lib/sync-bridge';
 import { TimerRing } from '@/components/focus-guard/TimerRing';
-import { QuickAccess } from '@/components/focus-guard/QuickAccess';
 import { TaskList } from '@/components/focus-guard/TaskList';
 import { AnalyticsCard } from '@/components/focus-guard/AnalyticsCard';
 import { SettingsModal } from '@/components/focus-guard/SettingsModal';
@@ -266,12 +265,9 @@ export default function FocusGuardDesktop() {
       {/* Main Content */}
       <main className="relative z-10 flex-1 overflow-y-auto fg-scrollbar px-6 pb-6">
         {activeTab === 'focus' && (
-          <div className="max-w-3xl mx-auto space-y-6 py-4">
+          <div className="max-w-3xl mx-auto py-4">
             <div className="flex justify-center">
               <TimerRing />
-            </div>
-            <div className="max-w-md mx-auto">
-              <QuickAccess />
             </div>
           </div>
         )}
