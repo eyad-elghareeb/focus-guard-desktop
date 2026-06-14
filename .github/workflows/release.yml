@@ -1,14 +1,25 @@
 name: Build & Release
 
-# Triggers when a `v*` tag is pushed (e.g. v1.7.4). Builds the Windows
-# installers (MSI + NSIS) and attaches them to the matching GitHub release.
+# Builds the Windows installers (MSI + NSIS) AND a portable self-contained
+# zip, then attaches all three to the matching GitHub release.
+#
+# Triggers:
+#   - push of a `v*` tag  → build + attach to that tag's release
+#   - workflow_dispatch   → manual run (rebuild current latest release, or
+#                           any tag you pick from the Actions UI)
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag/version to build (e.g. v1.7.4). Must match an existing release tag.'
+        required: true
+        default: 'v1.7.4'
 
-# tauri-action uploads release assets, which requires write access to
-# contents. The auto-provided GITHUB_TOKEN is sufficient.
+# Uploading release assets needs write access to contents. The auto-provided
+# GITHUB_TOKEN is sufficient — no extra secrets required.
 permissions:
   contents: write
 
@@ -33,18 +44,70 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # Resolve which tag we're building for: the pushed tag, or the
+      # manually-supplied input. The portable-zip step below uses this.
+      - name: Resolve target tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       # tauri-action runs the full pipeline in one step:
       #   npm run build (Next.js static export) → cargo build --release
       #   → bundles MSI + NSIS → uploads to the release tagged below.
-      # If the release already exists (e.g. created manually), it merges
-      # the artifacts into it rather than failing.
+      # The raw self-contained .exe also lands at
+      #   src-tauri/target/release/focusguard-desktop.exe
+      # which we zip in the next step. If the release already exists it
+      # merges artifacts into it rather than failing.
       - name: Build Tauri app (MSI + NSIS)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '${{ github.ref_name }}'
+          tagName: ${{ steps.tag.outputs.name }}
+          releaseName: '${{ steps.tag.outputs.name }}'
           releaseDraft: false
           prerelease: false
           args: --target x86_64-pc-windows-msvc
+
+      # Portable build: zip the raw .exe that tauri-action just compiled.
+      # No installer, no installer-related runtime deps — just the binary
+      # plus the app icon, runnable from anywhere. Self-contained in the
+      # sense that Tauri statically links all Rust deps into one .exe
+      # (it does rely on the system WebView2 runtime, which ships with
+      # Windows 10/11).
+      - name: Build portable zip
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.tag.outputs.name }}"
+          $version = $tag.TrimStart("v")
+          $exe = "src-tauri/target/release/focusguard-desktop.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Portable exe not found at $exe — did the Tauri build step run?"
+          }
+          $staging = "portable-staging/FocusGuard-Desktop-$version"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Copy-Item $exe "$staging/FocusGuard-Desktop.exe"
+          # Ship the icon too so file explorers and shortcuts render it.
+          Copy-Item "src-tauri/icons/icon.ico" "$staging/icon.ico" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$staging/*" -DestinationPath "FocusGuard.Desktop_${version}_portable.zip" -Force
+          Write-Host "Packaged portable zip:"
+          Get-Item "FocusGuard.Desktop_${version}_portable.zip" | Format-List Name, Length
+
+      # Attach the portable zip to the same release tauri-action targeted.
+      # --clobber replaces the asset if the release already had one (e.g.
+      # on a manual re-run of the same tag).
+      - name: Upload portable zip to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          tag="${{ steps.tag.outputs.name }}"
+          version="${tag#v}"
+          asset="FocusGuard.Desktop_${version}_portable.zip"
+          echo "Uploading $asset to release $tag"
+          gh release upload "$tag" "$asset" --clobber --repo "${{ github.repository }}"
