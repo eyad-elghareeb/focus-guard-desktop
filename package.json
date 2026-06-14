@@ -1,0 +1,34 @@
+{
+  "name": "focusguard-desktop",
+  "version": "1.7.2",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "node -e \"process.env.NODE_ENV='production';require('child_process').execSync('next build',{stdio:'inherit'})\"",
+    "start": "next start -p 3000",
+    "lint": "eslint .",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "packageManager": "npm",
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "next": "^16.2.9",
+    "react": "^19.1.8",
+    "react-dom": "^19.1.8",
+    "zustand": "^5.0.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^22",
+    "@types/react": "19.1",
+    "@types/react-dom": "19.1",
+    "eslint": "^9",
+    "eslint-config-next": "^16.2.9",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.5",
+    "typescript": "^5"
+  }
+}

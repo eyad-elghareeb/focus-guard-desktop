@@ -1,0 +1,42 @@
+[package]
+name = "focusguard-desktop"
+version = "1.7.2"
+description = "FocusGuard Desktop Helper - Track desktop apps and stay focused"
+authors = ["FocusGuard"]
+edition = "2021"
+
+[lib]
+name = "focusguard_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# default-features = false to drop the "compression" feature, which pulls the
+# broken brotli 8.x crate (see note at the bottom of this file). We add back
+# only the features we actually need.
+tauri = { version = "2", default-features = false, features = ["tray-icon", "wry", "common-controls-v6"] }
+tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1", features = ["full"] }
+sysinfo = "0.32"
+active-win-pos-rs = "0.8"
+dirs = "5"
+# HTTP client used by the sync broker to forward actions to extensions.
+# default-features = false + explicit feature list avoids the `brotli` crate,
+# which has a build-time incompatibility with recent nightly/stable Rust.
+# rustls-tls avoids an OpenSSL build dependency on Windows.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "http2", "macos-system-configuration"] }
+# Embedded HTTP broker served on localhost:9472 for extension sync.
+tiny_http = "0.12"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

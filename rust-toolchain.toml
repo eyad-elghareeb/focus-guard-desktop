@@ -1,0 +1,9 @@
+[toolchain]
+# Pin to 1.94.x. Rust 1.95 introduced stricter name-resolution rules that break
+# the `brotli` crate's internal `alloc::Allocator` trait resolution, and brotli
+# is pulled in transitively by Tauri (tauri-codegen uses it for asset
+# compression). Pinning the toolchain avoids the regression until upstream
+# brotli issues a fix.
+channel = "1.94.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

@@ -1,0 +1,763 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* FocusGuard Desktop Theme - Identical to Extension */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-fg-red: #ef4444;
+  --color-fg-orange: #f97316;
+  --color-fg-green: #10b981;
+  --color-fg-cyan: #06b6d4;
+  --color-fg-blue: #3b82f6;
+  --color-fg-purple: #8b5cf6;
+  --color-fg-amber: #f59e0b;
+}
+
+:root {
+  /* FocusGuard Extension Color Tokens */
+  --bg-deep: #08080d;
+  --bg-primary: #0c0c14;
+  --bg-surface: #13131f;
+  --bg-card: rgba(20, 20, 35, 0.6);
+  --bg-card-hover: rgba(28, 28, 48, 0.7);
+  --bg-elevated: rgba(30, 30, 50, 0.8);
+
+  --text-primary: #f0f0f8;
+  --text-secondary: #9090aa;
+  --text-muted: #5a5a72;
+  --text-faint: #3a3a50;
+
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.15);
+  --red-glow: rgba(239, 68, 68, 0.4);
+
+  --orange: #f97316;
+
+  --green: #10b981;
+  --green-soft: rgba(16, 185, 129, 0.15);
+  --green-glow: rgba(16, 185, 129, 0.4);
+
+  --cyan: #06b6d4;
+  --cyan-soft: rgba(6, 182, 212, 0.15);
+  --cyan-glow: rgba(6, 182, 212, 0.4);
+
+  --blue: #3b82f6;
+  --blue-soft: rgba(59, 130, 246, 0.15);
+  --blue-glow: rgba(59, 130, 246, 0.4);
+
+  --purple: #8b5cf6;
+  --purple-soft: rgba(139, 92, 246, 0.15);
+
+  --amber: #f59e0b;
+  --amber-soft: rgba(245, 158, 11, 0.15);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(59, 130, 246, 0.5);
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration: 0.2s;
+  --duration-slow: 0.4s;
+
+  /* shadcn compatibility */
+  --radius: 0.625rem;
+  --background: #08080d;
+  --foreground: #f0f0f8;
+  --card: rgba(20, 20, 35, 0.6);
+  --card-foreground: #f0f0f8;
+  --popover: rgba(30, 30, 50, 0.8);
+  --popover-foreground: #f0f0f8;
+  --primary: #3b82f6;
+  --primary-foreground: #f0f0f8;
+  --secondary: rgba(28, 28, 48, 0.7);
+  --secondary-foreground: #f0f0f8;
+  --muted: rgba(28, 28, 48, 0.7);
+  --muted-foreground: #9090aa;
+  --accent: rgba(28, 28, 48, 0.7);
+  --accent-foreground: #f0f0f8;
+  --destructive: #ef4444;
+  --border-shadcn: rgba(255, 255, 255, 0.06);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: rgba(59, 130, 246, 0.5);
+  --chart-1: #ef4444;
+  --chart-2: #f97316;
+  --chart-3: #10b981;
+  --chart-4: #06b6d4;
+  --chart-5: #8b5cf6;
+  --sidebar: #0c0c14;
+  --sidebar-foreground: #f0f0f8;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #f0f0f8;
+  --sidebar-accent: rgba(28, 28, 48, 0.7);
+  --sidebar-accent-foreground: #f0f0f8;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: rgba(59, 130, 246, 0.5);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: rgba(59, 130, 246, 0.5);
+  }
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+}
+
+/* Glass Card */
+.fg-glass {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.fg-glass:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+/* Floating Background Orbs */
+.fg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.fg-orb-red {
+  width: 500px;
+  height: 500px;
+  background: var(--red);
+  top: -100px;
+  right: -100px;
+  animation: orbFloat1 20s ease-in-out infinite;
+}
+
+.fg-orb-purple {
+  width: 400px;
+  height: 400px;
+  background: var(--purple);
+  bottom: -50px;
+  left: -100px;
+  animation: orbFloat2 25s ease-in-out infinite;
+}
+
+.fg-orb-cyan {
+  width: 300px;
+  height: 300px;
+  background: var(--cyan);
+  top: 50%;
+  left: 50%;
+  animation: orbFloat3 30s ease-in-out infinite;
+}
+
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(-30px, 40px); }
+  66% { transform: translate(20px, -30px); }
+}
+
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(40px, -20px); }
+  66% { transform: translate(-30px, 30px); }
+}
+
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(-50%, -50%); }
+  33% { transform: translate(-50%, -50%) translate(30px, 30px); }
+  66% { transform: translate(-50%, -50%) translate(-20px, -40px); }
+}
+
+/* Grid Overlay */
+.fg-grid-overlay {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Timer Ring */
+.fg-timer-ring {
+  transition: stroke-dashoffset 0.5s linear;
+}
+
+/* Logo Pulse */
+@keyframes logoPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.fg-logo-pulse {
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+/* Scrollbar */
+.fg-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fg-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fg-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--text-faint);
+  border-radius: 3px;
+}
+
+.fg-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Pill */
+.fg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Tab button */
+.fg-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.fg-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.fg-tab-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
+}
+
+/* Mode button */
+.fg-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.fg-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fg-mode-btn.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-hover);
+}
+
+.fg-mode-btn.active.focus-mode {
+  color: var(--red);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--red-soft);
+}
+
+.fg-mode-btn.active.short-break-mode {
+  color: var(--green);
+  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--green-soft);
+}
+
+.fg-mode-btn.active.long-break-mode {
+  color: var(--cyan);
+  border-color: rgba(6, 182, 212, 0.3);
+  background: var(--cyan-soft);
+}
+
+/* Control button */
+.fg-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+
+.fg-control-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.fg-control-btn.play-btn {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  border: none;
+  color: white;
+  box-shadow: 0 4px 20px var(--red-glow);
+}
+
+.fg-control-btn.play-btn:hover {
+  box-shadow: 0 6px 28px var(--red-glow);
+  transform: scale(1.08);
+}
+
+.fg-control-btn.play-btn.break-mode {
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  box-shadow: 0 4px 20px var(--green-glow);
+}
+
+.fg-control-btn.play-btn.break-mode:hover {
+  box-shadow: 0 6px 28px var(--green-glow);
+}
+
+/* Pulsing dot */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.fg-pulse-dot {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Toggle switch */
+.fg-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--text-faint);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+  border: none;
+  padding: 0;
+}
+
+.fg-toggle.active {
+  background: var(--blue);
+}
+
+.fg-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--duration) var(--ease);
+}
+
+.fg-toggle.active::after {
+  transform: translateX(20px);
+}
+
+/* Stepper */
+.fg-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.fg-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  font-size: 16px;
+}
+
+.fg-stepper button:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.fg-stepper .value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 36px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* Stat card */
+.fg-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+}
+
+.fg-stat .value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.fg-stat .label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Bar chart */
+.fg-bar {
+  transition: height var(--duration-slow) var(--ease-spring);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+}
+
+/* Source badge */
+.fg-source-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.fg-source-completed {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.fg-source-manual {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.fg-source-reset,
+.fg-source-skip {
+  color: var(--orange);
+  background: rgba(249, 115, 22, 0.15);
+}
+
+.fg-source-active {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+/* Blocked site chip */
+.fg-site-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all var(--duration) var(--ease);
+}
+
+.fg-site-chip:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+/* Category emoji */
+.fg-category-emoji {
+  font-size: 14px;
+}
+
+/* Quick access site */
+.fg-quick-site {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  min-width: 80px;
+}
+
+.fg-quick-site:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.fg-quick-site img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.fg-quick-site span {
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Settings section */
+.fg-settings-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.fg-settings-section:last-child {
+  border-bottom: none;
+}
+
+.fg-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fg-settings-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.fg-settings-sublabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Modal overlay */
+.fg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s var(--ease);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fg-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 520px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px;
+  animation: slideUp 0.3s var(--ease-spring);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Desktop App Tracking Indicator */
+.fg-desktop-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--green-soft);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+/* Sync indicator */
+.fg-sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fg-sync-connected {
+  background: var(--green-soft);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: var(--green);
+}
+
+.fg-sync-disconnected {
+  background: var(--amber-soft);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: var(--amber);
+}
+
+/* Input field */
+.fg-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--duration) var(--ease);
+}
+
+.fg-input:focus {
+  border-color: var(--border-focus);
+}
+
+.fg-input::placeholder {
+  color: var(--text-faint);
+}
+
+/* Action button */
+.fg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--duration) var(--ease);
+}
+
+.fg-btn-primary {
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  color: white;
+  border: none;
+}
+
+.fg-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.fg-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.fg-btn-ghost:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.fg-btn-danger {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.fg-btn-danger:hover {
+  background: var(--red-soft);
+}
+
+/* Progress bar */
+.fg-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.fg-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--red), var(--orange));
+  transition: width 0.5s var(--ease);
+}
+
+.fg-progress-fill.break-mode {
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+}

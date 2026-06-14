@@ -1,0 +1,34 @@
+# dependencies
+node_modules
+
+# next.js
+/.next/
+/out/
+
+# tauri build artifacts
+/src-tauri/target/
+/src-tauri/gen/
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# debug & logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env*
+
+# local
+local-*
+.claude
+.z-ai-config
+prompt
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
