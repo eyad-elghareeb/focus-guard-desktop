@@ -1,0 +1,50 @@
+name: Build & Release
+
+# Triggers when a `v*` tag is pushed (e.g. v1.7.4). Builds the Windows
+# installers (MSI + NSIS) and attaches them to the matching GitHub release.
+on:
+  push:
+    tags:
+      - 'v*'
+
+# tauri-action uploads release assets, which requires write access to
+# contents. The auto-provided GITHUB_TOKEN is sufficient.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Install rustup; the pinned 1.94.0 toolchain from rust-toolchain.toml
+      # is then auto-resolved by cargo. Do NOT pin a version here — that
+      # would override the file and could re-introduce the brotli 1.95
+      # regression that the pin guards against.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # tauri-action runs the full pipeline in one step:
+      #   npm run build (Next.js static export) → cargo build --release
+      #   → bundles MSI + NSIS → uploads to the release tagged below.
+      # If the release already exists (e.g. created manually), it merges
+      # the artifacts into it rather than failing.
+      - name: Build Tauri app (MSI + NSIS)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '${{ github.ref_name }}'
+          releaseDraft: false
+          prerelease: false
+          args: --target x86_64-pc-windows-msvc
