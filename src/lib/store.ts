@@ -464,12 +464,12 @@ export const useFocusGuardStore = create<Store>()(
         // Strip sync/runtime-only fields so the export matches what the
         // extension round-trips through its import/export handlers.
         const {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           extensionConnected, extensionPort, syncEnabled,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           _addSessionLog, _updateDailyStats, _addStudyLogEntryFromTimer,
           ...data
         } = state;
+        void extensionConnected; void extensionPort; void syncEnabled;
+        void _addSessionLog; void _updateDailyStats; void _addStudyLogEntryFromTimer;
         return data as unknown as FocusGuardState;
       },
 

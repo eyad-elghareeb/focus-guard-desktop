@@ -109,7 +109,6 @@ export function DesktopAppTracker() {
       tauriInvoke('stop_app_tracking');
       unlistenP.then(fn => fn?.());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Keep Rust's block list in sync whenever the user toggles a block.

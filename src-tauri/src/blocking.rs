@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, LogicalSize, Manager};
 use tauri_plugin_notification::NotificationExt;
 
-use crate::state::{blocking_active, AppState};
+use crate::state::AppState;
 
 /// Show the block overlay for `app_name`. The frontend renders the overlay's
 /// contents (timer, quote, emergency button) using these params.
@@ -42,9 +42,14 @@ pub fn show_overlay(app: &AppHandle, app_name: &str, window_title: &str) {
     let _ = window.set_focus();
 
     // Best-effort desktop notification.
-    let _ = app.notification().builder()
+    let _ = app
+        .notification()
+        .builder()
         .title("FocusGuard — app blocked")
-        .body(format!("{} is blocked during your focus session.", app_name))
+        .body(format!(
+            "{} is blocked during your focus session.",
+            app_name
+        ))
         .show();
 }
 
@@ -52,36 +57,6 @@ pub fn hide_overlay(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("block-overlay") {
         let _ = window.hide();
     }
-}
-
-/// Decide whether the polling loop should raise the overlay for `app_name`.
-pub fn should_block_app(state: &AppState, app_name: &str) -> bool {
-    let Ok(guard) = state.tracking.lock() else {
-        return false;
-    };
-
-    if !blocking_active(&guard.session) {
-        return false;
-    }
-
-    // App not in the block list → no overlay.
-    let normalized = app_name.to_lowercase();
-    let is_blocked = guard
-        .blocked_apps
-        .iter()
-        .any(|b| b.to_lowercase() == normalized);
-    if !is_blocked {
-        return false;
-    }
-
-    // Inside an emergency-access window for this app → no overlay.
-    if let Some(until) = guard.emergency_until.get(&normalized) {
-        if *until > Instant::now() {
-            return false;
-        }
-    }
-
-    true
 }
 
 /// Grant 5 minutes of emergency access to `app_name`.

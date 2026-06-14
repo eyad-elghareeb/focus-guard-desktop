@@ -11,8 +11,8 @@ mod state;
 mod sync_server;
 mod tracking;
 
-use std::collections::HashMap;
 use state::{blocking_active, AppState, SessionFlags, TrackingState};
+use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tracking::{categorize_app, list_running_apps, should_exclude_app, today_key, DesktopAppUsage};
 
@@ -87,7 +87,10 @@ fn grant_emergency_access(
     blocking::grant_emergency(&state, &app_name);
     blocking::hide_overlay(&app);
     // Notify the frontend so it can break the streak (matching the extension).
-    let _ = app.emit("emergency-access-granted", serde_json::json!({ "appName": app_name }));
+    let _ = app.emit(
+        "emergency-access-granted",
+        serde_json::json!({ "appName": app_name }),
+    );
     Ok(true)
 }
 
@@ -120,9 +123,7 @@ fn set_extension_connected(state: State<AppState>, connected: bool) -> Result<bo
 
 /// Flush the accumulated time for `current_app` into the daily bucket.
 fn flush_current_app(t: &mut TrackingState) {
-    if let (Some(app_name), Some(start)) =
-        (t.current_app.clone(), t.current_app_start.take())
-    {
+    if let (Some(app_name), Some(start)) = (t.current_app.clone(), t.current_app_start.take()) {
         let elapsed = start.elapsed().as_secs();
         if elapsed == 0 {
             return;
@@ -285,8 +286,7 @@ pub fn run() {
                                         app_name,
                                         window_title,
                                         total_seconds: 0,
-                                        last_active: chrono::Utc::now().timestamp_millis()
-                                            as u64,
+                                        last_active: chrono::Utc::now().timestamp_millis() as u64,
                                         category,
                                     });
                                 }
@@ -322,9 +322,12 @@ pub fn run() {
                     let app_state_ref = app_state.inner();
                     blocking::reap_emergency(app_state_ref);
                     if let Ok(mut guard) = app_state_ref.tracking.lock() {
-                        let cutoff =
-                            (chrono::Local::now() - chrono::Duration::days(30)).format("%Y-%m-%d").to_string();
-                        guard.usage_by_date.retain(|date, _| date.as_str() >= cutoff.as_str());
+                        let cutoff = (chrono::Local::now() - chrono::Duration::days(30))
+                            .format("%Y-%m-%d")
+                            .to_string();
+                        guard
+                            .usage_by_date
+                            .retain(|date, _| date.as_str() >= cutoff.as_str());
                     }
                 }
             });

@@ -9,6 +9,9 @@ node_modules
 /src-tauri/target/
 /src-tauri/gen/
 
+# packaged distributions (MSI/NSIS/portable zip)
+/dist/
+
 # misc
 .DS_Store
 *.pem

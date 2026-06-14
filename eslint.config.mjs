@@ -44,7 +44,18 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  ignores: [
+    "node_modules/**",
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "examples/**",
+    "skills/**",
+    // Tauri build artifacts — generated JS/TS we should not lint.
+    "src-tauri/target/**",
+    "src-tauri/gen/**",
+  ]
 }];
 
 export default eslintConfig;

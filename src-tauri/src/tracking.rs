@@ -20,55 +20,137 @@ pub struct DesktopAppUsage {
 pub fn categorize_app(app_name: &str) -> String {
     let name = app_name.to_lowercase();
 
-    if contains_any(&name, &[
-        "code", "vscode", "vim", "neovim", "emacs", "intellij", "idea",
-        "webstorm", "pycharm", "xcode", "android studio", "eclipse",
-        "terminal", "iterm", "alacritty", "kitty", "hyper", "warp",
-        "powershell", "cmd", "windows terminal", "gnome-terminal",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "code",
+            "vscode",
+            "vim",
+            "neovim",
+            "emacs",
+            "intellij",
+            "idea",
+            "webstorm",
+            "pycharm",
+            "xcode",
+            "android studio",
+            "eclipse",
+            "terminal",
+            "iterm",
+            "alacritty",
+            "kitty",
+            "hyper",
+            "warp",
+            "powershell",
+            "cmd",
+            "windows terminal",
+            "gnome-terminal",
+        ],
+    ) {
         return "development".into();
     }
 
-    if contains_any(&name, &[
-        "firefox", "chrome", "chromium", "safari", "edge", "brave",
-        "arc", "opera", "vivaldi",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "firefox", "chrome", "chromium", "safari", "edge", "brave", "arc", "opera", "vivaldi",
+        ],
+    ) {
         return "browser".into();
     }
 
-    if contains_any(&name, &[
-        "slack", "discord", "teams", "zoom", "telegram", "whatsapp",
-        "signal", "skype", "messages", "mail", "outlook", "thunderbird",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "slack",
+            "discord",
+            "teams",
+            "zoom",
+            "telegram",
+            "whatsapp",
+            "signal",
+            "skype",
+            "messages",
+            "mail",
+            "outlook",
+            "thunderbird",
+        ],
+    ) {
         return "communication".into();
     }
 
-    if contains_any(&name, &[
-        "figma", "sketch", "adobe", "illustrator", "photoshop",
-        "blender", "canva", "invision", "indesign", "premiere",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "figma",
+            "sketch",
+            "adobe",
+            "illustrator",
+            "photoshop",
+            "blender",
+            "canva",
+            "invision",
+            "indesign",
+            "premiere",
+        ],
+    ) {
         return "design".into();
     }
 
-    if contains_any(&name, &[
-        "spotify", "vlc", "itunes", "apple music", "steam", "epic",
-        "twitch", "netflix", "youtube", "discord", "game",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "spotify",
+            "vlc",
+            "itunes",
+            "apple music",
+            "steam",
+            "epic",
+            "twitch",
+            "netflix",
+            "youtube",
+            "discord",
+            "game",
+        ],
+    ) {
         return "entertainment".into();
     }
 
-    if contains_any(&name, &[
-        "notion", "obsidian", "todoist", "evernote", "onenote",
-        "calendar", "notes", "bear", "word", "excel", "powerpoint",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "notion",
+            "obsidian",
+            "todoist",
+            "evernote",
+            "onenote",
+            "calendar",
+            "notes",
+            "bear",
+            "word",
+            "excel",
+            "powerpoint",
+        ],
+    ) {
         return "productivity".into();
     }
 
-    if contains_any(&name, &[
-        "explorer", "finder", "settings", "system preferences",
-        "control center", "task manager", "activity monitor", "nautilus",
-        "dolphin", "thunar", "files",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "explorer",
+            "finder",
+            "settings",
+            "system preferences",
+            "control center",
+            "task manager",
+            "activity monitor",
+            "nautilus",
+            "dolphin",
+            "thunar",
+            "files",
+        ],
+    ) {
         return "system".into();
     }
 
@@ -86,31 +168,74 @@ pub fn should_exclude_app(app_name: &str) -> bool {
     }
 
     // Windows OS shells / system services.
-    if contains_any(&name, &[
-        "windows security", "windows defender", "windows update",
-        "windows explorer", "taskmgr", "task manager", "registry editor",
-        "event viewer", "device manager", "disk management", "services.msc",
-        "control panel", "ms-settings", "start menu", "searchui",
-        "shellexperiencehost", "application frame host", "runtime broker",
-        "sihost", "taskhostw", "wininit", "winlogon", "csrss", "lsass",
-        "services.exe", "svchost", "dwm", "fontdrvhost", "ctfmon",
-        "systemsettings", "sihost.dll", "lockapp",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "windows security",
+            "windows defender",
+            "windows update",
+            "windows explorer",
+            "taskmgr",
+            "task manager",
+            "registry editor",
+            "event viewer",
+            "device manager",
+            "disk management",
+            "services.msc",
+            "control panel",
+            "ms-settings",
+            "start menu",
+            "searchui",
+            "shellexperiencehost",
+            "application frame host",
+            "runtime broker",
+            "sihost",
+            "taskhostw",
+            "wininit",
+            "winlogon",
+            "csrss",
+            "lsass",
+            "services.exe",
+            "svchost",
+            "dwm",
+            "fontdrvhost",
+            "ctfmon",
+            "systemsettings",
+            "sihost.dll",
+            "lockapp",
+        ],
+    ) {
         return true;
     }
 
     // macOS menu bar / system processes.
-    if contains_any(&name, &[
-        "controlcenter", "systemuiserver", "loginwindow", "dock",
-        "finder", "spotlight", "coreservicesd",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "controlcenter",
+            "systemuiserver",
+            "loginwindow",
+            "dock",
+            "finder",
+            "spotlight",
+            "coreservicesd",
+        ],
+    ) {
         return true;
     }
 
     // Linux compositors / shells.
-    if contains_any(&name, &[
-        "gnome-shell", "kwin", "mutter", "wayland", "x11", "plasmashell",
-    ]) {
+    if contains_any(
+        &name,
+        &[
+            "gnome-shell",
+            "kwin",
+            "mutter",
+            "wayland",
+            "x11",
+            "plasmashell",
+        ],
+    ) {
         return true;
     }
 

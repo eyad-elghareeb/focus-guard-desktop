@@ -12,8 +12,8 @@
 //! database, no persistence beyond what the frontend already does.
 
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager};
 use tauri::async_runtime;
+use tauri::{AppHandle, Emitter, Manager};
 use tiny_http::{Header, Method, Response, Server};
 
 use crate::state::AppState;
@@ -26,7 +26,10 @@ pub fn spawn(app_handle: AppHandle) {
     let server = match Server::http(format!("127.0.0.1:{}", SYNC_PORT)) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("[focusguard] sync broker failed to bind :{} — {}", SYNC_PORT, e);
+            eprintln!(
+                "[focusguard] sync broker failed to bind :{} — {}",
+                SYNC_PORT, e
+            );
             return;
         }
     };
@@ -34,8 +37,7 @@ pub fn spawn(app_handle: AppHandle) {
     // Move the server into an Arc so the handler task can own one handle while
     // the accept loop owns another.
     let server = Arc::new(server);
-    let pool = async_runtime::TokioHandle::try_current()
-        .map(|_| ());
+    let pool = async_runtime::TokioHandle::try_current().map(|_| ());
 
     let app = app_handle.clone();
     let server_for_handler = server.clone();
@@ -67,11 +69,14 @@ fn handle_request(
 
     match (&method, url.as_str()) {
         (Method::Get, "/health") => {
-            respond_json(request, &serde_json::json!({
-                "ok": true,
-                "version": APP_VERSION,
-                "desktop": true,
-            }))?;
+            respond_json(
+                request,
+                &serde_json::json!({
+                    "ok": true,
+                    "version": APP_VERSION,
+                    "desktop": true,
+                }),
+            )?;
         }
 
         (Method::Get, "/state") => {
@@ -93,17 +98,20 @@ fn handle_request(
             let usage_json: serde_json::Map<String, serde_json::Value> = tracking
                 .usage_by_date
                 .iter()
-                .map(|(k, v)| (k.clone(), serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        serde_json::to_value(v).unwrap_or(serde_json::Value::Null),
+                    )
+                })
                 .collect();
-            respond_json(
-                request,
-                &serde_json::Value::Object(usage_json),
-            )?;
+            respond_json(request, &serde_json::Value::Object(usage_json))?;
         }
 
         (Method::Post, "/state") => {
             let body = read_body(&mut request.as_reader())?;
-            let parsed: serde_json::Value = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+            let parsed: serde_json::Value =
+                serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
 
             // Store and notify the frontend so it can merge.
             {
@@ -119,8 +127,7 @@ fn handle_request(
         }
 
         _ => {
-            let response = Response::empty(404)
-                .with_header(access_control_header());
+            let response = Response::empty(404).with_header(access_control_header());
             request.respond(response)?;
         }
     }
@@ -153,6 +160,5 @@ fn respond_json(
 fn access_control_header() -> Header {
     // Header::from_bytes returns Result<Header, ()>. We've validated these
     // constants, so the unwrap is safe.
-    Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..])
-        .expect("valid header bytes")
+    Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).expect("valid header bytes")
 }

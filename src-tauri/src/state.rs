@@ -29,6 +29,10 @@ pub struct TrackingState {
 }
 
 /// Mirror of the frontend timer/session flags relevant to blocking decisions.
+///
+/// `remaining_seconds` is accepted from the frontend so future versions can
+/// surface it in native notifications, but is not currently read by the Rust
+/// side — hence `#[allow(dead_code)]`.
 #[derive(Debug, Default, Clone, serde::Deserialize)]
 pub struct SessionFlags {
     #[serde(default)]
@@ -43,6 +47,7 @@ pub struct SessionFlags {
     #[serde(default)]
     pub block_during_breaks: bool,
     #[serde(default)]
+    #[allow(dead_code)]
     pub remaining_seconds: u64,
 }
 
